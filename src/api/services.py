@@ -287,8 +287,97 @@ def get_geodatamine_poi():
 		else:
 			return jsonify({"error": "Missing argument"})
 
+# Service to detect stops of a trajectory:
+# Example of testing arguments: trajectory=18&radius=100&time=40
+@application.route('/detect-stops' , methods = ['GET', 'POST'])
+def detect_stops():
+	if request.method == 'GET' or request.method == 'POST':
+		trajectory_number = request.args.get('trajectory')
+		radius = request.args.get('radius')
+		time = request.args.get('time')
+
+		if trajectory_number and radius and time :
+			query = "SELECT trajectory, time, ST_X(location::geometry), ST_Y(location::geometry) FROM point WHERE trajectory = %s"
+
+			try:
+				cursor.execute(query, (trajectory_number,))
+				result = cursor.fetchall()
+
+			except:
+				return jsonify({'error': 'This trajectory does not exist.'})
+
+			if result:
+				trajectory = []
+				i = 1
+
+				for obj in result:
+					trajectory.append({"trajectory": obj[0],
+										"time": obj[1],
+										"lon": obj[2],
+										"lat": obj[3],
+										"num": i})
+					i = i + 1
+				
+				
+				painted = []
+				color = ['green', 'orange', 'pink', 'black']
+				points = []
+				stops = []
+				i = 0
+				j = 0
+				k = 0
+				map = folium.Map(location = [46.1667, -1.15], zoom_start = 13)
+
+				while i < len(trajectory) - 1:
+					j = i + 1
+
+					while j < len(trajectory) and check_distance(trajectory[i], trajectory[j], float(radius)) == True :
+						points.append(trajectory[j])
+						j = j + 1
+
+					if len(points) >= 2:
+						center = get_center(points)
+						points.insert(0, trajectory[i])
+
+						if check_time(points[0]['time'], points[-1]['time'], float(time)) == True :
+							stops.append(center)
+
+							for point in points :
+								painted.append(point)
+								folium.Marker([float(point['lat']), float(point['lon'])],
+												popup = 'hrl',
+												tooltip = 'click',
+												icon = folium.Icon(color = color[k], icon = 'info-sign')).add_to(map)
+							k = k + 1
+
+							if k == len(color):
+								k = 0
+					i = i + j
+					j = 0
+					points = [] 
+							
+				for obj in trajectory :
+					folium.Marker([float(obj['lat']), float(obj['lon'])],
+									popup = 'num_traj' + str(obj['num']) + '\n time' + str(obj['time']),
+									tooltip ='click').add_to(map)
+				for stop in stops :
+					folium.Marker([float(stop['lat']),float(stop['lon'])],
+									popup = 'hrl',
+									tooltip = 'click',
+									icon = folium.Icon(color='red', icon='info-sign')).add_to(map)
+					folium.Circle(location = [stop['lat'], stop['lon']],
+									radius = float(radius),
+									color = '#BF0000').add_to(map)
+									
+				map.save('static/maps/stops_map.html')
+				return jsonify(stops)
+
+		else:
+			return jsonify({"error": "Missing argument"})
+
 # Service to get a visualization of the orchestration of the weather enrichment and the stops-moves detection services : To be revised !
 # This service MUST be improved and generalized !
+# Example of testing arguments: trajectory=18&radius=100&time=40&station-id=17300001
 @application.route('/see-orchestration', methods = ['GET', 'POST'])
 def see_orchestration():
 	if request.method == 'GET' or request.method == 'POST' :

@@ -69,7 +69,7 @@ host = "127.0.0.1"
 port = "5432"
 database = "da3t_db"
 
-key = "2a902434b5a204da0e235fa74ec8c19e"
+key = ""
 location = {"lat": 46.166,"lon": -1.15}
 
 database_connection = DatabaseConnection(user = user, password = password, host = host, database = database)

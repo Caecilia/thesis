@@ -48,7 +48,7 @@ def update_database(cursor, connection, json_data):
 
 		except:
 			print("Error while inserting hourly weather in the database.")
-    
+			
 	try:
 		cursor.execute("INSERT INTO public.day_context (date, sunrise, sunset, weather_station) VALUES(%s,%s,%s,%s)", 
 		(convertToUTC(json_data["current"]["dt"]), 

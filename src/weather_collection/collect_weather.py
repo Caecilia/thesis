@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, date, timezone
 sys.path.append("..\src")
 from database_connection import DatabaseConnection
 
-def getWeatherData(location, unix_date, key):
+def get_weather_data(location, unix_date, key):
 	url = "https://api.openweathermap.org/data/2.5/onecall/timemachine?lang=fr&units=metric&lat={}&lon={}&dt={}&appid={}"
 	url = url.format(location['lat'], location['lon'], unix_date, key)
 	response = requests.get(url)
@@ -18,20 +18,20 @@ def getWeatherData(location, unix_date, key):
 	else:
 		print("Error while loading data from OpenWeatherMap.", response.status_code)
 
-def getUnixTime(day):
+def get_unix_time(day):
 	day_datetime = datetime(int(day.split('-')[0]), int(day.split('-')[1]), int(day.split('-')[2]))
 	day_timestamp = day_datetime.replace(tzinfo = timezone.utc).timestamp()
 	return int(day_timestamp)
 
-def getPreviousDay(number_days):
+def get_previous_day(number_days):
 	previous_day = datetime.today() - timedelta(days = number_days)
 	date = str(previous_day).split(' ')
 	return date[0]
 
-def convertToUTC(timestamp):
+def convert_timestamp_to_utc(timestamp):
 	return datetime.utcfromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
-def updateDatabase(cursor, connection, json_data):
+def update_database(cursor, connection, json_data):
 	print("- Update start -")
 
 	for hourly_weather in json_data['hourly'] :
@@ -75,30 +75,30 @@ location = {"lat": 46.166,"lon": -1.15}
 database_connection = DatabaseConnection(user = user, password = password, host = host, database = database)
 
 if database_connection:
-	connection = database_connection.getConnection()
+	connection = database_connection.get_connection()
 	cursor = connection.cursor()
 
-	day_timestamp = getUnixTime(getPreviousDay(1))
+	day_timestamp = get_unix_time(get_previous_day(1))
 	# Get OpenWeatherMap data:
-	weather_data = getWeatherData(location, day_timestamp, key)
+	weather_data = get_weather_data(location, day_timestamp, key)
 	# Insert data on the database:
-	updateDatabase(cursor, connection, weather_data)
+	update_database(cursor, connection, weather_data)
 
-	day_timestamp = getUnixTime(getPreviousDay(2))
-	weather_data = getWeatherData(location, day_timestamp, key)
-	updateDatabase(cursor, connection, weather_data)
+	day_timestamp = get_unix_time(get_previous_day(2))
+	weather_data = get_weather_data(location, day_timestamp, key)
+	update_database(cursor, connection, weather_data)
 
-	day_timestamp = getUnixTime(getPreviousDay(3))
-	weather_data = getWeatherData(location, day_timestamp, key)
-	updateDatabase(cursor, connection, weather_data)
+	day_timestamp = get_unix_time(get_previous_day(3))
+	weather_data = get_weather_data(location, day_timestamp, key)
+	update_database(cursor, connection, weather_data)
 
-	day_timestamp = getUnixTime(getPreviousDay(4))
-	weather_data = getWeatherData(location, day_timestamp, key)
-	updateDatabase(cursor, connection, weather_data)
+	day_timestamp = get_unix_time(get_previous_day(4))
+	weather_data = get_weather_data(location, day_timestamp, key)
+	update_database(cursor, connection, weather_data)
 
-	day_timestamp = getUnixTime(getPreviousDay(5))
-	weather_data = getWeatherData(location, day_timestamp, key)
-	updateDatabase(cursor, connection, weather_data)
+	day_timestamp = get_unix_time(get_previous_day(5))
+	weather_data = get_weather_data(location, day_timestamp, key)
+	update_database(cursor, connection, weather_data)
 
 	cursor.close()
 	connection.close()

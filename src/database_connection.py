@@ -17,6 +17,6 @@ class DatabaseConnection:
 		except(Exception, psycopg2.Error) as error :
 			print ("Error while connecting to PostgreSQL.", error)
 
-	def getConnection(self):
+	def get_connection(self):
 		return self.connection
 

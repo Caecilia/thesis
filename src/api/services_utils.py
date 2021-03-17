@@ -1,144 +1,69 @@
 import requests
 from geopy.distance import geodesic
 from flask import jsonify
-def getQuery(type,lat,lon,radius):
-    query="""query{
-                       poi(
-                           size:%d,
-                           filters:[
-                               { isLocatedAt: {schema_geo: { _geo_distance: {lng: "%f" , lat: "%f" , distance: "%d" } }}},
-                               {rdf_type: {_eq: "https://www.datatourisme.gouv.fr/ontology/core#%s"}}
-                           ]
-                       ){
-                           total
-                           results{
-                                rdf_type
 
-                               
-                               _uri
-                               rdfs_label{
-                                   value
-                                   lang
-                               }
-                               rdfs_comment{
-                                    value
-                                    lang
-                                }
-                                 hasContact{
-                                    foaf_homepage
-                                    schema_legalName
-                                    schema_logo
-                                    schema_email
-                                    schema_telephone
-                                    schema_givenName
-                                    schema_familyName
+def fetch_google_place_poi(lat, lon, radius, keyword, type, key):
+	url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius={}&keyword={}&type={}&key={}"
+	url = url.format(lat, lon, radius, keyword, type, key)
+	response = requests.get(url)
 
-                                }
-                               takesPlaceAt{
-                                   startTime
-                                   endDate
-                                   endTime
-                                   startDate
-                               }
-                                hasBeenCreatedBy{
-                                    foaf_homepage
-                                    schema_legalName
-                                    schema_logo
-                                    schema_email
-                                    schema_telephone
-                                    schema_givenName
-                                    schema_familyName
-                                }
-                                
-                                isLocatedAt{
-                                    schema_address{
-                                        schema_addressLocality
-                                        schema_postalCode
-                                        schema_streetAddress
+	if response.status_code == 200:
+		json_response = response.json()
+		return json_response
 
-                                    }
-                                    schema_geo{
-                                        schema_longitude
-                                        schema_latitude
+	else:
+		return {"error": "Connection to Google Place failed{}".format(response.status_code)}
 
-                                    }
-                                }
-                                
-                                
-                           }
-                       }
+def get_address(location, google_key):
+	url = "https://maps.googleapis.com/maps/api/geocode/json?latlng={},{}&language=fr&result_type=locality|plus_code&key={}"
+	url = url.format(location["lat"], location["lon"], google_key)
+	response = requests.get(url)
 
-                      }""" %(10,float(lon),float(lat),int(radius),type) 
-    return query
+	if response.status_code == 200:
+		return response.json()["results"][0]["address_components"][0]["short_name"]
 
+	else:
+		return jsonify({"error": "The address corresponding to the geographical coordinates was not found."})
 
-def getPlacePOI(lat,lon,radius,keyword,type,key):
-    
-    url="https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}&radius={}&keyword={}&type={}&key={}"
-    url=url.format(lat,lon,radius,keyword,type,key)
-    response=requests.get(url)
-    if response.status_code == 200:
-        responseJson=response.json()
-        return responseJson
-    else:
-        return {'error':'Connection Error {}'.format(response.status_code)}
+def get_distance(origin, poi_location):
+	origin = (origin["lat"], origin["lon"])
+	poi = (poiLocation["lat"], poiLocation["lon"])
+	return geodesic(origin, poi).km
 
+def get_identifiers(address):
+	url = "https://geodatamine.fr/boundaries/search?text={}"
+	url = url.format(address)
+	response = requests.get(url)
 
-def getDistance(origin , poiLocation):
+	if response.status_code == 200:
+		identifiers = []
 
-    ori = (origin['lat'] , origin['lon'])
-    poi = (poiLocation['lat'] , poiLocation['lon'])
-    return geodesic(ori,poi).km
+		for json_object in response.json():
+			identifiers.append(json_object["id"])
 
+		return identifiers
 
-def getAddress(location):
-    url='https://maps.googleapis.com/maps/api/geocode/json?latlng={},{}&language=fr&result_type=locality|plus_code&key=google_key'
-    url=url.format(location['lat'],location['lon'])
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()['results'][0]['address_components'][0]['short_name']
-    else:
-        return jsonify({'error':'function getAddress()'})
+	else:
+		return jsonify({"error": "The address identifier was not found."})
 
+def get_pois(type, identifiers):
+	pois = []
 
-def getID(address):
-    url='https://geodatamine.fr/boundaries/search?text={}'
-    url=url.format(address)
-    response=requests.get(url)
-    if response.status_code == 200:
-        ID=[]
-        for obj in response.json():
-            ID.append(obj['id'])
-        return ID
-    else:
-        return jsonify({'error':'getID function '})
+	for identifier in identifiers:
+		url = "https://geodatamine.fr/data/{}/{}?format=geojson&aspoint=true"
+		url = url.format(type, identifier)
+		response = requests.get(url)
+		
+		if response.status_code == 200:
+			pois.append(response.json())
+		
+		else:
+			return jsonify({"error": "Geodatamine POI could not be fetched"})
 
+	return pois
 
-
-def getPointOfInterest(type,ID):
-    poi=[]
-    for id in ID:
-        url='https://geodatamine.fr/data/{}/{}?format=geojson&aspoint=true'
-        url=url.format(type,id)
-        response=requests.get(url)
-        if response.status_code == 200:
-            poi.append(response.json())
-        else:
-            return jsonify({'error':'getPointOfInterest'})
-    return poi
-
-def exist(id,POIs):
-    for obj in POIs:
-        if obj['properties']['osm_id'] == id:
-            return True
-    return False
-
-
-
-
-
-
-
-#https://geodatamine.fr/boundaries/search?text=la%20rochellle
-#https://geodatamine.fr/themes
-#https://www.gps-coordinates.net/api
+def does_poi_exist(id, pois):
+	for poi in pois:
+		if poi['properties']['osm_id'] == id:
+			return True
+	return False
